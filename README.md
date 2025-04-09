@@ -4,7 +4,7 @@
 
 Gnome extension that adds volume sliders for every application emitting audio in the system menu.
 
-#### Building and Install Manually
+#### Building and Installing Manually
 
 ```bash
 npm i
