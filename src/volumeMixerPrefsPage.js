@@ -1,17 +1,21 @@
 'use strict';
 
 import { VolumeMixerAddFilterDialog } from "./volumeMixerAddFilterDialog";
+import { VolumeMixerAddAliasDialog } from "./volumeMixerAddAliasDialog";
 
-const { Adw, Gio, Gtk, GObject } = imports.gi;
+const { Adw, Gio, Gtk, GObject, GLib } = imports.gi;
 const ExtensionUtils = imports.misc.extensionUtils;
 
 export const VolumeMixerPrefsPage = GObject.registerClass({
     GTypeName: 'VolumeMixerPrefsPage',
 }, class VolumeMixerPrefsPage extends Adw.PreferencesPage {
     filterListData = [];
+    aliasListData = {};
     filteredAppsGroup;
-    settings;
     addFilteredAppButtonRow;
+    aliasGroup;
+    addAliasedAppButtonRow;
+    settings;
 
     constructor() {
         // TODO: Move most of this into a .ui file.
@@ -19,6 +23,7 @@ export const VolumeMixerPrefsPage = GObject.registerClass({
 
         this.settings = ExtensionUtils.getSettings("net.evermiss.mymindstorm.volume-mixer");
         this.filterListData = this.settings.get_strv("filtered-apps");
+        this.aliasListData = this.settings.get_value("aliased-apps").recursiveUnpack();
 
         // Group for general settings
         const generalGroup = new Adw.PreferencesGroup();
@@ -105,6 +110,21 @@ export const VolumeMixerPrefsPage = GObject.registerClass({
         // Add filter entry button
         this.createAddFilteredAppButtonRow();
 
+        // Application aliases settings group
+        this.aliasGroup = new Adw.PreferencesGroup({
+            title: 'Application Aliases',
+            description: 'Set aliases for applications.',
+        });
+        this.add(this.aliasGroup);
+        
+        // List of aliased apps
+        for (const [aliasedAppName, aliasedAppAlias] of Object.entries(this.aliasListData)) {
+            this.aliasGroup.add(this.buildAliasListRow(aliasedAppName, aliasedAppAlias))
+          }
+
+        // Add alias entry button
+        this.createAddAliasedAppButtonRow();
+
         // TODO: modes
         // - group by application
         // - group by application but as a dropdown with streams
@@ -187,6 +207,86 @@ export const VolumeMixerPrefsPage = GObject.registerClass({
         dialog.connect('response', (_dialog, response) => {
             if (response === Gtk.ResponseType.OK) {
                 this.addFilteredApp(dialog.appNameEntry.text);
+            }
+            dialog.close();
+            dialog.destroy();
+        });
+        dialog.show();
+    }
+
+    createAddAliasedAppButtonRow() {
+        // I wanted to use Adw.PrefrencesRow, but you can't get the 'row-activated' signal unless it's part of a Gtk.ListBox.
+        // Adw.PrefrencesGroup doesn't extend Gtk.ListBox.
+        // TODO: Learn a less hacky to do this. I'm currently too new to GTK to know the best practice.
+        this.addAliasedAppButtonRow = new Adw.ActionRow();
+        const addIcon = Gtk.Image.new_from_icon_name("list-add");
+        addIcon.height_request = 40
+        this.addAliasedAppButtonRow.set_child(addIcon);
+        this.aliasGroup.add(this.addAliasedAppButtonRow);
+        // It won't send 'activated' signal w/o this being set.
+        this.addAliasedAppButtonRow.activatable_widget = addIcon;
+        this.addAliasedAppButtonRow.connect('activated', (callingWidget) => {
+            this.showAliasedAppDialog(callingWidget, this.aliasListData)
+        });
+    }
+
+    buildAliasListRow(aliasedAppName, aliasedAppAlias) {
+        const aliasListRow = new Adw.PreferencesRow({
+            title: aliasedAppName + ": " + aliasedAppAlias,
+            activatable: false,
+        });
+
+        // Make box for custom row
+        const aliasListBox = new Gtk.Box({
+            margin_bottom:6,
+            margin_top: 6,
+            margin_end: 15,
+            margin_start: 15
+        });
+
+        // Add title
+        const aliasListLabel = Gtk.Label.new(aliasListRow.title);
+        aliasListLabel.hexpand = true;
+        aliasListLabel.halign = Gtk.Align.START
+        aliasListBox.append(aliasListLabel);
+
+        // Add remove button
+        const aliasListButton = new Gtk.Button({
+            halign: Gtk.Align.END
+        });
+
+        // Add icon to remove button
+        const aliasListImage = Gtk.Image.new_from_icon_name("user-trash-symbolic");
+        aliasListButton.set_child(aliasListImage);
+
+        // Tie action to remove button
+        aliasListButton.connect("clicked", (_button) => this.removeAliasedApp(aliasedAppName, aliasListRow));
+
+        aliasListBox.append(aliasListButton);
+        aliasListRow.set_child(aliasListBox);
+
+        return aliasListRow
+    }
+
+    removeAliasedApp(aliasedAppName, aliasListRow) {
+        delete this.aliasListData[aliasedAppName]
+        this.settings.set_value("aliased-apps", new GLib.Variant('a{ss}', this.aliasListData));
+        this.aliasGroup.remove(aliasListRow);
+    }
+
+    addAliasedApp(aliasedAppName, aliasedAppAlias) {
+        this.aliasListData[aliasedAppName] = aliasedAppAlias;
+        this.settings.set_value("aliased-apps", new GLib.Variant('a{ss}', this.aliasListData));
+        this.aliasGroup.remove(this.addAliasedAppButtonRow);
+        this.aliasGroup.add(this.buildAliasListRow(aliasedAppName, aliasedAppAlias));
+        this.aliasGroup.add(this.addAliasedAppButtonRow);
+    }
+
+    showAliasedAppDialog(callingWidget, aliasListData) {
+        const dialog = new VolumeMixerAddAliasDialog(callingWidget, aliasListData);
+        dialog.connect('response', (_dialog, response) => {
+            if (response === Gtk.ResponseType.OK) {
+                this.addAliasedApp(dialog.appNameEntry.text, dialog.appAliasEntry.text);
             }
             dialog.close();
             dialog.destroy();

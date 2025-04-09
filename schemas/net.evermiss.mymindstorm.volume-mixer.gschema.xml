@@ -4,6 +4,9 @@
     <key name="filtered-apps" type="as">
       <default>[]</default>
     </key>
+    <key name="aliased-apps" type="a{ss}">
+      <default>{}</default>
+    </key>
     <key name="show-description" type="b">
       <default>false</default>
     </key>

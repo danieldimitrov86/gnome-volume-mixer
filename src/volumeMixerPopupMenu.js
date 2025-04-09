@@ -64,7 +64,7 @@ export class VolumeMixerPopupMenu extends PopupMenu.PopupMenuSection {
             }
         }
 
-        this._applicationStreams[id] = new ApplicationStreamSlider(stream, { showDesc: this._showStreamDesc, showIcon: this._showStreamIcon });
+        this._applicationStreams[id] = new ApplicationStreamSlider(stream, { showDesc: this._showStreamDesc, showIcon: this._showStreamIcon, alias: this._aliasedApps[stream.get_name()] });
         this.addMenuItem(this._applicationStreams[id].item);
     }
 
@@ -82,6 +82,7 @@ export class VolumeMixerPopupMenu extends PopupMenu.PopupMenuSection {
         }
 
         this._filteredApps = this.settings.get_strv("filtered-apps");
+        this._aliasedApps = this.settings.get_value("aliased-apps").recursiveUnpack();
         this._filterMode = this.settings.get_string("filter-mode");
         this._showStreamDesc = this.settings.get_boolean("show-description");
         this._showStreamIcon = this.settings.get_boolean("show-icon");

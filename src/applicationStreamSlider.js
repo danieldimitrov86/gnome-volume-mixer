@@ -15,7 +15,7 @@ export class ApplicationStreamSlider extends Volume.StreamSlider {
       this._icon.icon_name = stream.get_icon_name();
     }
 
-    let name = stream.get_name();
+    let name = opts.alias ? opts.alias : stream.get_name();
     let description = stream.get_description();
 
     if (name || description) {
